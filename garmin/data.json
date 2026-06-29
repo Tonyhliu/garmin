@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-29T21:27:31",
+  "updated": "2026-06-29T22:20:36",
   "wellness": {
     "2026-06-27": {
       "date": "2026-06-27",
@@ -66955,15 +66955,15 @@
       "endTimeGMT": "2026-06-28 16:46:22",
       "qualifyingDive": false,
       "activityUUID": "71ca9872-e80f-4872-bed3-a62ad68a48fd",
+      "autoCalcCalories": false,
+      "parent": false,
       "pr": false,
+      "decoDive": false,
       "favorite": false,
       "purposeful": false,
-      "parent": false,
-      "decoDive": false,
-      "manualActivity": false,
-      "autoCalcCalories": false,
       "elevationCorrected": false,
-      "atpActivity": false
+      "atpActivity": false,
+      "manualActivity": false
     },
     "23387800503": {
       "activityId": 23387800503,
@@ -67168,15 +67168,15 @@
       "endTimeGMT": "2026-06-26 15:49:41",
       "qualifyingDive": false,
       "activityUUID": "7d5ccaf8-f233-4e18-8e62-166cdd60d66b",
+      "autoCalcCalories": false,
+      "parent": false,
       "pr": false,
+      "decoDive": false,
       "favorite": false,
       "purposeful": false,
-      "parent": false,
-      "decoDive": false,
-      "manualActivity": false,
-      "autoCalcCalories": false,
       "elevationCorrected": false,
-      "atpActivity": false
+      "atpActivity": false,
+      "manualActivity": false
     },
     "23364014829": {
       "activityId": 23364014829,
@@ -67348,15 +67348,15 @@
       "endTimeGMT": "2026-06-24 13:40:32",
       "qualifyingDive": false,
       "activityUUID": "58cd9820-802b-4172-810f-1102ef5bc612",
+      "autoCalcCalories": false,
+      "parent": false,
       "pr": false,
+      "decoDive": false,
       "favorite": false,
       "purposeful": false,
-      "parent": false,
-      "decoDive": false,
-      "manualActivity": false,
-      "autoCalcCalories": false,
       "elevationCorrected": false,
-      "atpActivity": false
+      "atpActivity": false,
+      "manualActivity": false
     },
     "23358500531": {
       "activityId": 23358500531,
@@ -67565,15 +67565,66 @@
       "endTimeGMT": "2026-06-24 01:33:08",
       "qualifyingDive": false,
       "activityUUID": "d309d87f-180b-414b-a288-250ab438e172",
+      "autoCalcCalories": false,
+      "parent": false,
       "pr": false,
+      "decoDive": false,
       "favorite": false,
       "purposeful": false,
-      "parent": false,
-      "decoDive": false,
-      "manualActivity": false,
-      "autoCalcCalories": false,
       "elevationCorrected": false,
-      "atpActivity": false
+      "atpActivity": false,
+      "manualActivity": false
     }
+  },
+  "fitness": {
+    "date": "2026-06-29",
+    "max_metrics": [],
+    "fitness_age": {
+      "chronologicalAge": 33,
+      "fitnessAge": 25.134601212196085,
+      "achievableFitnessAge": 26.967086641406862,
+      "previousFitnessAge": 25.134601212196085,
+      "components": {
+        "vigorousDaysAvg": {
+          "value": 4.8,
+          "stale": false,
+          "numOfWeeksForIm": 6
+        },
+        "rhr": {
+          "value": 47,
+          "stale": false
+        },
+        "vigorousMinutesAvg": {
+          "value": 385.3,
+          "stale": false,
+          "numOfWeeksForIm": 6
+        },
+        "bmi": {
+          "value": 24.2,
+          "stale": false,
+          "lastMeasurementDate": "2026-04-11"
+        }
+      },
+      "lastUpdated": "2026-06-28T00:00:00.0"
+    },
+    "training_status": {
+      "userId": 99271532,
+      "mostRecentVO2Max": null,
+      "mostRecentTrainingLoadBalance": null,
+      "mostRecentTrainingStatus": null,
+      "heatAltitudeAcclimationDTO": null
+    },
+    "race_predictions": {
+      "userId": 99271532,
+      "fromCalendarDate": null,
+      "toCalendarDate": null,
+      "calendarDate": "2026-06-28",
+      "time5K": 1322,
+      "time10K": 2787,
+      "timeHalfMarathon": 6162,
+      "timeMarathon": 13367
+    },
+    "endurance_score": {},
+    "hill_score": {}
   }
 }
