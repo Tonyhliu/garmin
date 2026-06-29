@@ -13,8 +13,9 @@ the **Markdown files** sink. Each morning the workflow:
 2. Emails you a **daily digest** (yesterday's snapshot + multi-day trends +
    workouts) via [Resend](https://resend.com).
 3. Publishes a **password-protected dashboard** (charts + history) to GitHub Pages.
-4. Adds a short **AI coaching note** (marathon prep + wellness) from Claude, at the
-   top of the email and dashboard.
+4. Adds a short **AI coaching note** from Claude — recovery read, **tomorrow's
+   workout** from an adaptive marathon plan, fitness (VO2max / race predictor), and
+   wellness — at the top of the email and dashboard.
 
 ## ▶ Next steps (do these now)
 
@@ -49,7 +50,9 @@ After that it runs every morning at 06:17 UTC on its own.
 - `report.py` — builds the email digest + `dashboard.html` from `garmin/data.json`
   (makes no Garmin calls).
 - `coach.py` — asks Claude for a short daily marathon/wellness note from the trend
-  summary (no Garmin calls; fail-soft — skipped if no API key).
+  summary + fitness + tomorrow's planned workout (no Garmin calls; fail-soft).
+- `planner.py` — generates/caches the day-by-day taper plan (`plan.json`) via Claude;
+  regenerates weekly or on `--replan` (fail-soft).
 - `requirements.txt` — Python dependencies.
 - `.github/workflows/garmin-sync.yml` — daily cloud automation.
 
@@ -92,6 +95,7 @@ In the repo: **Settings → Secrets and variables → Actions**. Add these under
 | `ANTHROPIC_API_KEY`  | secret   | Claude API key for the AI coach (optional — omit and coaching is skipped) |
 | `GARMIN_RACE_NAME`   | variable | optional; goal race name (default: San Francisco Marathon)   |
 | `GARMIN_RACE_DATE`   | variable | optional; goal race date `YYYY-MM-DD` (default: 2026-07-26)   |
+| `GARMIN_GOAL_TIME`   | variable | optional; target finish like `3:15:00` (else uses Garmin's predictor) |
 
 **Resend note:** with the no-domain sender `onboarding@resend.dev`, Resend only
 delivers to the email address that owns the Resend account. So either sign up for
@@ -123,11 +127,19 @@ workflow to change the time).
 
 ## The AI coach
 
-`coach.py` sends your recent trend summary to Claude (`claude-opus-4-8`) with a
-marathon-coach system prompt and gets back a short daily note — a one-line
-push/hold/easy/rest call, a few bullets tying the trends to race prep and the taper,
-and a wellness tip. It's race-aware: it counts down to `GARMIN_RACE_DATE` and shifts
-advice as the taper approaches. The note appears at the top of the email and dashboard.
+`coach.py` sends your recent trend summary — plus current fitness (VO2max, race
+predictor, training status) and **tomorrow's planned workout** — to Claude
+(`claude-opus-4-8`) and gets back a short daily note: a push/hold/easy/rest call,
+a specific **"Tomorrow: …"** session adapted to your recovery, race-prep bullets, and
+a wellness tip. It's race-aware: it counts down to `GARMIN_RACE_DATE` and shifts advice
+as the taper approaches.
+
+**The plan.** `planner.py` generates a day-by-day schedule from today to race day and
+caches it in `garmin/plan.json` (committed, so it persists). It **auto-regenerates
+weekly** (adapting to how training actually went) — or whenever the race changes, the
+plan runs out, or you pass `--replan`. The coach reads tomorrow's entry and adapts it;
+the email/dashboard show the upcoming days. Set `GARMIN_GOAL_TIME` (e.g. `3:15:00`) to
+plan around a target pace instead of Garmin's predicted time.
 
 - **Cost:** one Claude call per day on a small prompt — negligible.
 - **Privacy:** only the *aggregated* metric summary (numbers + a workout list) is sent
@@ -142,7 +154,10 @@ Test it locally:
 # Preview the coaching note + metrics without sending an email
 ANTHROPIC_API_KEY=sk-ant-... .venv/bin/python report.py --out ./garmin --dry-run
 
-# Build everything but skip the Claude call entirely
+# Force-regenerate the training plan (plan.json)
+ANTHROPIC_API_KEY=sk-ant-... .venv/bin/python report.py --out ./garmin --replan --dry-run
+
+# Build everything but skip the Claude call entirely (no coach, no plan)
 .venv/bin/python report.py --out ./garmin --no-coach --dry-run
 ```
 
@@ -154,7 +169,8 @@ Have it read the `garmin/` folder:
 garmin/
   daily/2026-06-28.md           # one wellness note per day
   activities/2026-06-28-...md    # one note per workout
-  data.json                     # full machine-readable store
+  data.json                     # full machine-readable store (incl. fitness snapshot)
+  plan.json                     # day-by-day taper plan to race day
   dashboard.html                # self-contained charts UI (also published to Pages)
 ```
 

@@ -37,12 +37,21 @@ DEFAULT_FROM = "onboarding@resend.dev"
 # this script has no dependency on garminconnect.
 # --------------------------------------------------------------------------- #
 def dig(obj, *paths, default=None):
-    """Return the first present, non-None value among several dot-separated paths."""
+    """Return the first present, non-None value among several dot-separated paths.
+
+    A numeric segment indexes into a list (e.g. "max_metrics.0.generic.vo2MaxValue").
+    """
     for path in paths:
         cur = obj
         ok = True
         for key in path.split("."):
-            if isinstance(cur, dict) and key in cur and cur[key] is not None:
+            if isinstance(cur, list):
+                try:
+                    cur = cur[int(key)]
+                except (ValueError, IndexError):
+                    ok = False
+                    break
+            elif isinstance(cur, dict) and key in cur and cur[key] is not None:
                 cur = cur[key]
             else:
                 ok = False
@@ -220,6 +229,65 @@ def _sparkline(values, color) -> str:
     )
 
 
+def _fitness_pairs(fitness: dict | None) -> list:
+    """Best-effort (label, value) display pairs from the fitness snapshot."""
+    if not fitness:
+        return []
+    pairs = []
+    vo2 = dig(fitness, "max_metrics.0.generic.vo2MaxValue", "max_metrics.generic.vo2MaxValue")
+    if vo2 is not None:
+        pairs.append(("VO2 max", fnum(vo2, 1)))
+    secs = dig(fitness, "race_predictions.timeMarathon", "race_predictions.0.timeMarathon")
+    if secs:
+        h, rem = divmod(int(secs), 3600)
+        m, _ = divmod(rem, 60)
+        pairs.append(("Predicted marathon", f"{h}h {m:02d}m"))
+    status = dig(fitness, "training_status.latestTrainingStatus")
+    if status:
+        pairs.append(("Training status", str(status)))
+    return pairs
+
+
+def _fitness_html(fitness: dict | None) -> str:
+    pairs = _fitness_pairs(fitness)
+    if not pairs:
+        return ""
+    cells = "".join(
+        f'<span style="font:13px Arial;color:#555;margin-right:16px">'
+        f'<b>{k}:</b> {v}</span>' for k, v in pairs
+    )
+    return (
+        '<div style="margin:0 0 18px;padding:10px 12px;background:#f8f9fa;'
+        f'border-radius:8px">{cells}</div>'
+    )
+
+
+def _week_html(upcoming: list) -> str:
+    """Upcoming planned days as a compact table for the email."""
+    if not upcoming:
+        return ""
+    rows = []
+    for d in upcoming:
+        dist = d.get("distance_km")
+        dist_s = f"{dist} km" if dist else "—"
+        rows.append(
+            '<tr>'
+            f'<td style="padding:5px 12px;border-bottom:1px solid #f0f0f0;font:13px Arial">{d.get("date","")}</td>'
+            f'<td style="padding:5px 12px;border-bottom:1px solid #f0f0f0;font:13px Arial">{d.get("type","")}</td>'
+            f'<td style="padding:5px 12px;border-bottom:1px solid #f0f0f0;font:13px Arial">{dist_s}</td>'
+            f'<td style="padding:5px 12px;border-bottom:1px solid #f0f0f0;font:13px Arial;color:#555">{d.get("detail","")}</td>'
+            "</tr>"
+        )
+    return (
+        '<h3 style="font:600 16px -apple-system,Segoe UI,Arial;margin:24px 0 8px">Plan — next days</h3>'
+        '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%">'
+        '<tr style="text-align:left;color:#888;font:12px Arial">'
+        '<th style="padding:4px 12px">Date</th><th style="padding:4px 12px">Workout</th>'
+        '<th style="padding:4px 12px">Dist</th><th style="padding:4px 12px">Detail</th></tr>'
+        + "".join(rows) + "</table>"
+    )
+
+
 def _coaching_html(coaching: str | None) -> str:
     """Render the coach's plain-text note as an inline-styled email block."""
     if not coaching:
@@ -248,7 +316,8 @@ def _coaching_html(coaching: str | None) -> str:
     )
 
 
-def render_email_html(series: dict, dashboard_url: str | None, coaching: str | None = None) -> str:
+def render_email_html(series: dict, dashboard_url: str | None, coaching: str | None = None,
+                      fitness: dict | None = None, upcoming: list | None = None) -> str:
     # Most recent date that has any metric present (falls back to the last date).
     latest_day = series["dates"][-1]
     for i in range(len(series["dates"]) - 1, -1, -1):
@@ -329,9 +398,11 @@ def render_email_html(series: dict, dashboard_url: str | None, coaching: str | N
   <h2 style="font:700 20px -apple-system,Segoe UI,Arial;margin:0 0 2px">Garmin daily digest</h2>
   <p style="font:13px Arial;color:#888;margin:0 0 16px">Latest data: {latest_day} · trend over {len(series['dates'])} days</p>
   {_coaching_html(coaching)}
+  {_fitness_html(fitness)}
   <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%">
     {''.join(rows)}
   </table>
+  {_week_html(upcoming or [])}
   {workouts_html}
   {link_html}
   <p style="font:11px Arial;color:#bbb;margin-top:28px">Generated from your Garmin Connect data · read-only sync</p>
@@ -341,7 +412,8 @@ def render_email_html(series: dict, dashboard_url: str | None, coaching: str | N
 # --------------------------------------------------------------------------- #
 # Dashboard rendering — self-contained HTML (Chart.js via CDN, data embedded).
 # --------------------------------------------------------------------------- #
-def render_dashboard_html(series: dict, coaching: str | None = None) -> str:
+def render_dashboard_html(series: dict, coaching: str | None = None,
+                          fitness: dict | None = None, upcoming: list | None = None) -> str:
     chart_meta = [
         {"key": m["key"], "label": m["label"], "unit": m["unit"], "color": m["color"]}
         for m in METRICS
@@ -353,6 +425,8 @@ def render_dashboard_html(series: dict, coaching: str | None = None) -> str:
         "meta": chart_meta,
         "workouts": workouts,
         "coaching": coaching or "",
+        "fitness": [[k, v] for k, v in _fitness_pairs(fitness)],
+        "plan": upcoming or [],
         "generated": datetime.now().isoformat(timespec="seconds"),
     }
     data_json = json.dumps(payload)
@@ -391,7 +465,12 @@ def render_dashboard_html(series: dict, coaching: str | None = None) -> str:
   <div class="sub" id="sub"></div>
 </header>
 <div class="coach" id="coach" style="display:none"><div class="box"><h2>🏃 Coach</h2><div id="coachbody"></div></div></div>
+<div class="coach" id="fitwrap" style="display:none"><div id="fitness" style="display:flex;flex-wrap:wrap;gap:18px;padding:12px 20px;background:#fff;border:1px solid #eee;border-radius:12px"></div></div>
 <div class="grid" id="grid"></div>
+<div class="wrap" id="planwrap" style="display:none">
+  <h2 style="font-size:16px">Plan — upcoming</h2>
+  <table id="plan"><thead><tr><th>Date</th><th>Phase</th><th>Workout</th><th>Dist</th><th>Detail</th></tr></thead><tbody></tbody></table>
+</div>
 <div class="wrap">
   <h2 style="font-size:16px">Workouts</h2>
   <table id="workouts"><thead><tr><th>Date</th><th>Activity</th><th>Distance</th><th>Time</th><th>Avg HR</th></tr></thead><tbody></tbody></table>
@@ -412,6 +491,26 @@ if (D.coaching) {
     cb.appendChild(el);
   }
   document.getElementById('coach').style.display = 'block';
+}
+if (D.fitness && D.fitness.length) {
+  const fb = document.getElementById('fitness');
+  for (const [k, v] of D.fitness) {
+    const el = document.createElement('span');
+    el.style.cssText = 'font-size:14px';
+    el.innerHTML = `<b style="color:#555">${k}:</b> ${v}`;
+    fb.appendChild(el);
+  }
+  document.getElementById('fitwrap').style.display = 'block';
+}
+if (D.plan && D.plan.length) {
+  const tb = document.querySelector('#plan tbody');
+  for (const d of D.plan) {
+    const tr = document.createElement('tr');
+    const dist = d.distance_km ? d.distance_km + ' km' : '—';
+    tr.innerHTML = `<td>${d.date||''}</td><td>${d.phase||''}</td><td>${d.type||''}</td><td>${dist}</td><td>${d.detail||''}</td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('planwrap').style.display = 'block';
 }
 const grid = document.getElementById('grid');
 for (const m of D.meta) {
@@ -493,7 +592,9 @@ def main() -> int:
     parser.add_argument("--dashboard-url", default=os.getenv("DASHBOARD_URL"),
                         help="Public dashboard URL to link from the email (optional).")
     parser.add_argument("--no-coach", action="store_true",
-                        help="Skip the AI coaching note (no Claude API call).")
+                        help="Skip the AI coaching note + plan (no Claude API call).")
+    parser.add_argument("--replan", action="store_true",
+                        help="Force-regenerate the training plan (plan.json).")
     args = parser.parse_args()
 
     if args.days < 2:
@@ -501,19 +602,26 @@ def main() -> int:
 
     store = load_store(args.out)
     series = build_series(store, args.days)
+    fitness = store.get("fitness")
 
-    # AI coaching note (fail-soft: None if disabled / no key / SDK / API error).
+    # AI coaching note + adaptive plan (fail-soft: None if disabled / no key / API error).
     coaching = None
+    upcoming = []
     if not args.no_coach:
         import coach
-        coaching = coach.generate_coaching(series)
+        import planner
+        race = coach.race_config()
+        plan = planner.ensure_plan(args.out, race, fitness, series, replan=args.replan)
+        planned = planner.tomorrow_workout(plan)
+        upcoming = planner.upcoming(plan)
+        coaching = coach.generate_coaching(series, race, fitness=fitness, planned=planned)
 
     # Always (re)write the dashboard — it's the browseable UI.
     dash_path = Path(args.out) / "dashboard.html"
-    dash_path.write_text(render_dashboard_html(series, coaching))
+    dash_path.write_text(render_dashboard_html(series, coaching, fitness, upcoming))
     print(f"Wrote {dash_path}", file=sys.stderr)
 
-    email_html = render_email_html(series, args.dashboard_url, coaching)
+    email_html = render_email_html(series, args.dashboard_url, coaching, fitness, upcoming)
 
     if args.no_email:
         print("Skipping email (--no-email).", file=sys.stderr)

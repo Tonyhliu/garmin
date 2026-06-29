@@ -70,11 +70,11 @@ jobs:
           DASHBOARD_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
         run: python report.py --out ./garmin --days 14
 
-      - name: Commit dashboard
+      - name: Commit dashboard + plan
         run: |
-          git add garmin/dashboard.html
+          git add garmin            # picks up dashboard.html and plan.json
           if git diff --cached --quiet; then
-            echo "No dashboard change to commit."
+            echo "No dashboard/plan change to commit."
           else
             git commit -m "chore: garmin dashboard $(date -u +%Y-%m-%d)"
             git push

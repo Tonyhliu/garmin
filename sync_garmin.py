@@ -52,7 +52,13 @@ def dig(obj, *paths, default=None):
         cur = obj
         ok = True
         for key in path.split("."):
-            if isinstance(cur, dict) and key in cur and cur[key] is not None:
+            if isinstance(cur, list):
+                try:
+                    cur = cur[int(key)]
+                except (ValueError, IndexError):
+                    ok = False
+                    break
+            elif isinstance(cur, dict) and key in cur and cur[key] is not None:
                 cur = cur[key]
             else:
                 ok = False
@@ -176,6 +182,31 @@ def fetch_wellness_day(garmin, day: str) -> dict:
     }
 
 
+def fetch_fitness(garmin, day: str) -> dict:
+    """Best-effort current fitness snapshot (VO2max, training status, race predictor, …).
+
+    These are 'where am I now' metrics rather than per-day history, so we grab one
+    snapshot for the latest date. Availability varies by device and recent activity.
+    """
+
+    def safe(fn, *args):
+        try:
+            return fn(*args)
+        except Exception as exc:  # noqa: BLE001 - metric availability varies
+            print(f"  (skip {fn.__name__}: {exc})", file=sys.stderr)
+            return None
+
+    return {
+        "date": day,
+        "max_metrics": safe(garmin.get_max_metrics, day),          # VO2 max
+        "fitness_age": safe(garmin.get_fitnessage_data, day),
+        "training_status": safe(garmin.get_training_status, day),  # status + acute load
+        "race_predictions": safe(garmin.get_race_predictions),     # 5K/10K/half/marathon
+        "endurance_score": safe(garmin.get_endurance_score, day),
+        "hill_score": safe(garmin.get_hill_score, day),
+    }
+
+
 def fetch(garmin, days: int) -> dict:
     today = date.today()
     start = today - timedelta(days=days - 1)
@@ -190,7 +221,10 @@ def fetch(garmin, days: int) -> dict:
         print(f"Fetching wellness {day} ...", file=sys.stderr)
         wellness.append(fetch_wellness_day(garmin, day))
 
-    return {"activities": activities, "wellness": wellness}
+    print(f"Fetching fitness snapshot {end_s} ...", file=sys.stderr)
+    fitness = fetch_fitness(garmin, end_s)
+
+    return {"activities": activities, "wellness": wellness, "fitness": fitness}
 
 
 # --------------------------------------------------------------------------- #
@@ -325,6 +359,8 @@ def sink_files(payload: dict, out: str) -> None:
         store["wellness"][w["date"]] = w
     for a in payload["activities"]:
         store["activities"][str(a.get("activityId", a.get("startTimeLocal", "")))] = a
+    if payload.get("fitness"):
+        store["fitness"] = payload["fitness"]  # latest snapshot, overwritten each run
     store["updated"] = datetime.now().isoformat(timespec="seconds")
 
     store_path.write_text(json.dumps(store, indent=2, ensure_ascii=False))
@@ -357,6 +393,23 @@ def sink_stdout(payload: dict) -> None:
         print(render_daily_note(w))
     for a in payload["activities"]:
         print(render_activity_note(a))
+
+    fit = payload.get("fitness") or {}
+    if fit:
+        vo2 = dig(fit, "max_metrics.0.generic.vo2MaxValue", "max_metrics.generic.vo2MaxValue")
+        marathon = dig(fit, "race_predictions.timeMarathon", "race_predictions.0.timeMarathon")
+        status = dig(fit, "training_status.latestTrainingStatus",
+                     "training_status.mostRecentTrainingStatus.latestTrainingStatusData")
+        print(f"# Fitness snapshot {fit.get('date','')}")
+        if vo2 is not None:
+            print(f"- VO2 max: {fnum(vo2, 1)}")
+        if marathon:
+            h, rem = divmod(int(marathon), 3600)
+            m, s = divmod(rem, 60)
+            print(f"- Predicted marathon: {h}h{m:02d}m{s:02d}s")
+        if status:
+            print(f"- Training status: {status}")
+        print()
     print(
         f"\n[dry-run] {len(payload['wellness'])} daily + "
         f"{len(payload['activities'])} activities. Nothing written.",
