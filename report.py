@@ -220,7 +220,35 @@ def _sparkline(values, color) -> str:
     )
 
 
-def render_email_html(series: dict, dashboard_url: str | None) -> str:
+def _coaching_html(coaching: str | None) -> str:
+    """Render the coach's plain-text note as an inline-styled email block."""
+    if not coaching:
+        return ""
+    import html as _html
+
+    body = []
+    for raw in coaching.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        safe = _html.escape(line)
+        if line.startswith("- "):
+            body.append(
+                f'<div style="font:14px -apple-system,Segoe UI,Arial;margin:2px 0 2px 12px">'
+                f'• {_html.escape(line[2:])}</div>'
+            )
+        else:
+            body.append(f'<div style="font:14px -apple-system,Segoe UI,Arial;margin:4px 0">{safe}</div>')
+    return (
+        '<div style="background:#f3f0ff;border:1px solid #e5dbff;border-radius:10px;'
+        'padding:14px 16px;margin:0 0 20px">'
+        '<div style="font:700 14px -apple-system,Segoe UI,Arial;color:#7048e8;margin:0 0 8px">'
+        '🏃 Coach</div>'
+        + "".join(body) + "</div>"
+    )
+
+
+def render_email_html(series: dict, dashboard_url: str | None, coaching: str | None = None) -> str:
     # Most recent date that has any metric present (falls back to the last date).
     latest_day = series["dates"][-1]
     for i in range(len(series["dates"]) - 1, -1, -1):
@@ -300,6 +328,7 @@ def render_email_html(series: dict, dashboard_url: str | None) -> str:
 <div style="max-width:560px;margin:0 auto;padding:8px">
   <h2 style="font:700 20px -apple-system,Segoe UI,Arial;margin:0 0 2px">Garmin daily digest</h2>
   <p style="font:13px Arial;color:#888;margin:0 0 16px">Latest data: {latest_day} · trend over {len(series['dates'])} days</p>
+  {_coaching_html(coaching)}
   <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%">
     {''.join(rows)}
   </table>
@@ -312,7 +341,7 @@ def render_email_html(series: dict, dashboard_url: str | None) -> str:
 # --------------------------------------------------------------------------- #
 # Dashboard rendering — self-contained HTML (Chart.js via CDN, data embedded).
 # --------------------------------------------------------------------------- #
-def render_dashboard_html(series: dict) -> str:
+def render_dashboard_html(series: dict, coaching: str | None = None) -> str:
     chart_meta = [
         {"key": m["key"], "label": m["label"], "unit": m["unit"], "color": m["color"]}
         for m in METRICS
@@ -323,6 +352,7 @@ def render_dashboard_html(series: dict) -> str:
         "metrics": series["metrics"],
         "meta": chart_meta,
         "workouts": workouts,
+        "coaching": coaching or "",
         "generated": datetime.now().isoformat(timespec="seconds"),
     }
     data_json = json.dumps(payload)
@@ -345,6 +375,10 @@ def render_dashboard_html(series: dict) -> str:
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:24px;max-width:1200px;margin:0 auto}
   .card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px}
   .card h3{margin:0 0 4px;font-size:14px} .card .now{font-size:22px;font-weight:700}
+  .coach{max-width:1200px;margin:20px auto 0;padding:0 24px}
+  .coach .box{background:#f3f0ff;border:1px solid #e5dbff;border-radius:12px;padding:16px 20px}
+  .coach h2{margin:0 0 8px;font-size:15px;color:#7048e8}
+  .coach .line{margin:3px 0} .coach .bullet{margin:3px 0 3px 14px}
   .wrap{max-width:1200px;margin:0 auto;padding:0 24px 40px}
   table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #eee;border-radius:10px;overflow:hidden}
   th,td{padding:8px 12px;text-align:left;font-size:13px;border-bottom:1px solid #f0f0f0}
@@ -356,6 +390,7 @@ def render_dashboard_html(series: dict) -> str:
   <h1>Garmin dashboard</h1>
   <div class="sub" id="sub"></div>
 </header>
+<div class="coach" id="coach" style="display:none"><div class="box"><h2>🏃 Coach</h2><div id="coachbody"></div></div></div>
 <div class="grid" id="grid"></div>
 <div class="wrap">
   <h2 style="font-size:16px">Workouts</h2>
@@ -366,6 +401,18 @@ def render_dashboard_html(series: dict) -> str:
 const D = JSON.parse(document.getElementById('data').textContent);
 document.getElementById('sub').textContent =
   `${D.dates[0]} – ${D.dates[D.dates.length-1]} · generated ${D.generated}`;
+if (D.coaching) {
+  const cb = document.getElementById('coachbody');
+  for (const raw of D.coaching.split('\\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const el = document.createElement('div');
+    if (line.startsWith('- ')) { el.className = 'bullet'; el.textContent = '• ' + line.slice(2); }
+    else { el.className = 'line'; el.textContent = line; }
+    cb.appendChild(el);
+  }
+  document.getElementById('coach').style.display = 'block';
+}
 const grid = document.getElementById('grid');
 for (const m of D.meta) {
   const vals = D.metrics[m.key];
@@ -445,6 +492,8 @@ def main() -> int:
                         help="Print a text preview instead of sending the email.")
     parser.add_argument("--dashboard-url", default=os.getenv("DASHBOARD_URL"),
                         help="Public dashboard URL to link from the email (optional).")
+    parser.add_argument("--no-coach", action="store_true",
+                        help="Skip the AI coaching note (no Claude API call).")
     args = parser.parse_args()
 
     if args.days < 2:
@@ -453,12 +502,18 @@ def main() -> int:
     store = load_store(args.out)
     series = build_series(store, args.days)
 
+    # AI coaching note (fail-soft: None if disabled / no key / SDK / API error).
+    coaching = None
+    if not args.no_coach:
+        import coach
+        coaching = coach.generate_coaching(series)
+
     # Always (re)write the dashboard — it's the browseable UI.
     dash_path = Path(args.out) / "dashboard.html"
-    dash_path.write_text(render_dashboard_html(series))
+    dash_path.write_text(render_dashboard_html(series, coaching))
     print(f"Wrote {dash_path}", file=sys.stderr)
 
-    email_html = render_email_html(series, args.dashboard_url)
+    email_html = render_email_html(series, args.dashboard_url, coaching)
 
     if args.no_email:
         print("Skipping email (--no-email).", file=sys.stderr)
@@ -466,6 +521,10 @@ def main() -> int:
 
     if args.dry_run:
         print("=== email preview (text) ===")
+        if coaching:
+            print("--- coach ---")
+            print(coaching)
+            print("--- metrics ---")
         for m in METRICS:
             latest, prev = _last_two(series["metrics"][m["key"]])
             if latest is None:

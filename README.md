@@ -13,6 +13,8 @@ the **Markdown files** sink. Each morning the workflow:
 2. Emails you a **daily digest** (yesterday's snapshot + multi-day trends +
    workouts) via [Resend](https://resend.com).
 3. Publishes a **password-protected dashboard** (charts + history) to GitHub Pages.
+4. Adds a short **AI coaching note** (marathon prep + wellness) from Claude, at the
+   top of the email and dashboard.
 
 ## ▶ Next steps (do these now)
 
@@ -28,6 +30,10 @@ do these on GitHub (no terminal needed):
       `RESEND_API_KEY`, `GARMIN_MAIL_TO`, `DASHBOARD_PASSWORD` (make it **long**),
       and a *variable* `GARMIN_MAIL_FROM` = `onboarding@resend.dev`.
       (`GARMIN_TOKEN_B64` is already set.)
+- [ ] **(AI coach)** Add secret `ANTHROPIC_API_KEY` from
+      [console.anthropic.com](https://console.anthropic.com). Optional: variables
+      `GARMIN_RACE_NAME` / `GARMIN_RACE_DATE` (defaults: San Francisco Marathon,
+      2026-07-26). Skip this and everything else still works — the coach just no-ops.
 - [ ] **Enable Pages**: **Settings → Pages → Source = GitHub Actions**.
 - [ ] **Run it**: **Actions → Garmin sync → Run workflow**. Confirm a green run, the
       email arrives, and `https://tonyhliu.github.io/garmin/` asks for your password.
@@ -42,6 +48,8 @@ After that it runs every morning at 06:17 UTC on its own.
 - `sync_garmin.py` — the pull script (read-only; never writes to Garmin).
 - `report.py` — builds the email digest + `dashboard.html` from `garmin/data.json`
   (makes no Garmin calls).
+- `coach.py` — asks Claude for a short daily marathon/wellness note from the trend
+  summary (no Garmin calls; fail-soft — skipped if no API key).
 - `requirements.txt` — Python dependencies.
 - `.github/workflows/garmin-sync.yml` — daily cloud automation.
 
@@ -81,6 +89,9 @@ In the repo: **Settings → Secrets and variables → Actions**. Add these under
 | `GARMIN_MAIL_TO`     | secret   | the email address to send the digest to                     |
 | `DASHBOARD_PASSWORD` | secret   | a **strong** passphrase that unlocks the dashboard (see below) |
 | `GARMIN_MAIL_FROM`   | variable | sender; use `onboarding@resend.dev` until you verify a domain |
+| `ANTHROPIC_API_KEY`  | secret   | Claude API key for the AI coach (optional — omit and coaching is skipped) |
+| `GARMIN_RACE_NAME`   | variable | optional; goal race name (default: San Francisco Marathon)   |
+| `GARMIN_RACE_DATE`   | variable | optional; goal race date `YYYY-MM-DD` (default: 2026-07-26)   |
 
 **Resend note:** with the no-domain sender `onboarding@resend.dev`, Resend only
 delivers to the email address that owns the Resend account. So either sign up for
@@ -109,6 +120,31 @@ will be published at `https://<you>.github.io/garmin/`.
 
 After that it runs every morning on its own (06:17 UTC — edit the `cron` in the
 workflow to change the time).
+
+## The AI coach
+
+`coach.py` sends your recent trend summary to Claude (`claude-opus-4-8`) with a
+marathon-coach system prompt and gets back a short daily note — a one-line
+push/hold/easy/rest call, a few bullets tying the trends to race prep and the taper,
+and a wellness tip. It's race-aware: it counts down to `GARMIN_RACE_DATE` and shifts
+advice as the taper approaches. The note appears at the top of the email and dashboard.
+
+- **Cost:** one Claude call per day on a small prompt — negligible.
+- **Privacy:** only the *aggregated* metric summary (numbers + a workout list) is sent
+  to the Claude API — never raw GPS or the full `data.json`.
+- **Fail-soft:** no `ANTHROPIC_API_KEY` (or any API error) → the digest still sends,
+  just without the coaching note.
+- **Not medical advice** — the note says so; treat it as informational.
+
+Test it locally:
+
+```bash
+# Preview the coaching note + metrics without sending an email
+ANTHROPIC_API_KEY=sk-ant-... .venv/bin/python report.py --out ./garmin --dry-run
+
+# Build everything but skip the Claude call entirely
+.venv/bin/python report.py --out ./garmin --no-coach --dry-run
+```
 
 ## Point your AI coach at the data
 
