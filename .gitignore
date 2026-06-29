@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local secrets / credentials — never commit these
+.env
+*.token
+.garminconnect/
+
+# NOTE: the garmin/ data folder IS committed on purpose (Path A relies on it).

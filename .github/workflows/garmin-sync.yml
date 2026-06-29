@@ -1,0 +1,53 @@
+name: Garmin sync
+
+# Runs in the cloud every morning and commits the latest Garmin data back into
+# this repo (the garmin/ folder). GitHub Actions runners are ephemeral, so the
+# commit step is what makes the data persist between runs.
+
+on:
+  schedule:
+    # 06:17 UTC daily. Cron here is always UTC — adjust to your timezone.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}   # lets you click "Run workflow" manually in the Actions tab
+
+# Allow the job to push the refreshed data back to the repo.
+permissions:
+  contents: write
+
+# Never run two syncs at once; let the in-progress one finish.
+concurrency:
+  group: garmin-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull Garmin data
+        env:
+          # The base64 token bundle printed by `python sync_garmin.py --login`.
+          GARMIN_TOKEN_B64: ${{ secrets.GARMIN_TOKEN_B64 }}
+        run: python sync_garmin.py --days 3 --sink files --out ./garmin
+
+      - name: Commit updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add garmin
+          if git diff --cached --quiet; then
+            echo "No new Garmin data to commit."
+          else
+            git commit -m "chore: garmin sync $(date -u +%Y-%m-%d)"
+            git push
+          fi
