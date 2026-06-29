@@ -13,6 +13,10 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:24px;max-width:1200px;margin:0 auto}
   .card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px}
   .card h3{margin:0 0 4px;font-size:14px} .card .now{font-size:22px;font-weight:700}
+  .coach{max-width:1200px;margin:20px auto 0;padding:0 24px}
+  .coach .box{background:#f3f0ff;border:1px solid #e5dbff;border-radius:12px;padding:16px 20px}
+  .coach h2{margin:0 0 8px;font-size:15px;color:#7048e8}
+  .coach .line{margin:3px 0} .coach .bullet{margin:3px 0 3px 14px}
   .wrap{max-width:1200px;margin:0 auto;padding:0 24px 40px}
   table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #eee;border-radius:10px;overflow:hidden}
   th,td{padding:8px 12px;text-align:left;font-size:13px;border-bottom:1px solid #f0f0f0}
@@ -24,16 +28,54 @@
   <h1>Garmin dashboard</h1>
   <div class="sub" id="sub"></div>
 </header>
+<div class="coach" id="coach" style="display:none"><div class="box"><h2>🏃 Coach</h2><div id="coachbody"></div></div></div>
+<div class="coach" id="fitwrap" style="display:none"><div id="fitness" style="display:flex;flex-wrap:wrap;gap:18px;padding:12px 20px;background:#fff;border:1px solid #eee;border-radius:12px"></div></div>
 <div class="grid" id="grid"></div>
+<div class="wrap" id="planwrap" style="display:none">
+  <h2 style="font-size:16px">Plan — upcoming</h2>
+  <table id="plan"><thead><tr><th>Date</th><th>Phase</th><th>Workout</th><th>Dist</th><th>Detail</th></tr></thead><tbody></tbody></table>
+</div>
 <div class="wrap">
   <h2 style="font-size:16px">Workouts</h2>
   <table id="workouts"><thead><tr><th>Date</th><th>Activity</th><th>Distance</th><th>Time</th><th>Avg HR</th></tr></thead><tbody></tbody></table>
 </div>
-<script id="data" type="application/json">{"dates": ["2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29"], "metrics": {"resting_hr": [null, null, null, null, null, null, null, 48.0, 49.0, 43.0, 40.0, 48.0, 45.0, null], "hrv": [null, null, null, null, null, null, null, 107.0, 69.0, 109.0, 115.0, 98.0, 98.0, null], "sleep_hours": [null, null, null, null, null, null, null, 3.683333333333333, 4.516666666666667, 7.572777777777778, 6.0, 7.766666666666667, 6.283333333333333, null], "sleep_score": [null, null, null, null, null, null, null, 49.0, 35.0, 89.0, 76.0, 89.0, 78.0, null], "readiness": [null, null, null, null, null, null, null, 30.0, 25.0, 65.0, 50.0, 72.0, 40.0, null], "body_battery_high": [null, null, null, null, null, null, null, 69.0, 28.0, 90.0, 100.0, 83.0, 100.0, null], "stress": [null, null, null, null, null, null, null, 35.0, 42.0, 9.0, 34.0, 20.0, 20.0, null], "steps": [null, null, null, null, null, null, null, 19412.0, 21912.0, 2281.0, 24388.0, 9093.0, 32627.0, null]}, "meta": [{"key": "resting_hr", "label": "Resting HR", "unit": "bpm", "color": "#e1567c"}, {"key": "hrv", "label": "HRV (overnight)", "unit": "ms", "color": "#3a86ff"}, {"key": "sleep_hours", "label": "Sleep", "unit": "h", "color": "#7048e8"}, {"key": "sleep_score", "label": "Sleep score", "unit": "", "color": "#9775fa"}, {"key": "readiness", "label": "Training readiness", "unit": "", "color": "#2f9e44"}, {"key": "body_battery_high", "label": "Body battery (peak)", "unit": "", "color": "#f59f00"}, {"key": "stress", "label": "Stress (avg)", "unit": "", "color": "#fa5252"}, {"key": "steps", "label": "Steps", "unit": "", "color": "#1098ad"}], "workouts": [{"name": "Millbrae Running", "day": "2026-06-28", "dist": "25.77 km", "dur": "2h 31m", "hr": "150 bpm"}, {"name": "Anaheim Running", "day": "2026-06-26", "dist": "11.28 km", "dur": "1h 9m", "hr": "152 bpm"}, {"name": "Treadmill Running", "day": "2026-06-24", "dist": "8.16 km", "dur": "43m", "hr": "144 bpm"}, {"name": "06.23 tempo", "day": "2026-06-23", "dist": "9.70 km", "dur": "53m", "hr": "149 bpm"}], "generated": "2026-06-29T21:27:32"}</script>
+<script id="data" type="application/json">{"dates": ["2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29"], "metrics": {"resting_hr": [null, null, null, null, null, null, null, 48.0, 49.0, 43.0, 40.0, 48.0, 45.0, null], "hrv": [null, null, null, null, null, null, null, 107.0, 69.0, 109.0, 115.0, 98.0, 98.0, null], "sleep_hours": [null, null, null, null, null, null, null, 3.683333333333333, 4.516666666666667, 7.572777777777778, 6.0, 7.766666666666667, 6.283333333333333, null], "sleep_score": [null, null, null, null, null, null, null, 49.0, 35.0, 89.0, 76.0, 89.0, 78.0, null], "readiness": [null, null, null, null, null, null, null, 30.0, 25.0, 65.0, 50.0, 72.0, 40.0, null], "body_battery_high": [null, null, null, null, null, null, null, 69.0, 28.0, 90.0, 100.0, 83.0, 100.0, null], "stress": [null, null, null, null, null, null, null, 35.0, 42.0, 9.0, 34.0, 20.0, 20.0, null], "steps": [null, null, null, null, null, null, null, 19412.0, 21912.0, 2281.0, 24388.0, 9093.0, 32627.0, null]}, "meta": [{"key": "resting_hr", "label": "Resting HR", "unit": "bpm", "color": "#e1567c"}, {"key": "hrv", "label": "HRV (overnight)", "unit": "ms", "color": "#3a86ff"}, {"key": "sleep_hours", "label": "Sleep", "unit": "h", "color": "#7048e8"}, {"key": "sleep_score", "label": "Sleep score", "unit": "", "color": "#9775fa"}, {"key": "readiness", "label": "Training readiness", "unit": "", "color": "#2f9e44"}, {"key": "body_battery_high", "label": "Body battery (peak)", "unit": "", "color": "#f59f00"}, {"key": "stress", "label": "Stress (avg)", "unit": "", "color": "#fa5252"}, {"key": "steps", "label": "Steps", "unit": "", "color": "#1098ad"}], "workouts": [{"name": "Millbrae Running", "day": "2026-06-28", "dist": "25.77 km", "dur": "2h 31m", "hr": "150 bpm"}, {"name": "Anaheim Running", "day": "2026-06-26", "dist": "11.28 km", "dur": "1h 9m", "hr": "152 bpm"}, {"name": "Treadmill Running", "day": "2026-06-24", "dist": "8.16 km", "dur": "43m", "hr": "144 bpm"}, {"name": "06.23 tempo", "day": "2026-06-23", "dist": "9.70 km", "dur": "53m", "hr": "149 bpm"}], "coaching": "Today's call: hold\nTomorrow: Your plan calls for a 6.0 km easy run. With your training readiness at 40, make sure this is truly gentle, aiming for the conversational 6:15-6:45 min/km pace. Listen to your body and don't push.\n- Great work on the 25.77 km run yesterday, but note your training readiness dipped to 40 today. This is a clear signal to prioritize recovery as we enter the early taper for San Francisco.\n- With 27 days to go and your predicted marathon at 3h42m47s, protecting your body now will pay off on race day. Focus on keeping easy efforts truly easy.\n- Your RHR (45 bpm) and HRV (98 ms) are holding strong, which is a positive sign for underlying fitness.\n- Aim to get back to consistent 7.5-8 hours of sleep. Last night's 6.3 hours and lower sleep score (78 from 89) need attention as optimal sleep is critical for taper recovery.\nNot medical advice.", "fitness": [["Predicted marathon", "3h 42m"]], "plan": [{"date": "2026-06-30", "phase": "Early Taper", "type": "Easy run", "detail": "Gentle pace, conversational effort (approx 6:15-6:45 min/km)", "distance_km": 6.0}, {"date": "2026-07-01", "phase": "Early Taper", "type": "Cross-train", "detail": "Light cycling or swimming, low impact, 30-45 min", "distance_km": 0.0}, {"date": "2026-07-02", "phase": "Early Taper", "type": "Strides", "detail": "4km easy run with 4x30s strides at ~5k pace, recovery walk/jog", "distance_km": 4.0}, {"date": "2026-07-03", "phase": "Early Taper", "type": "Easy run", "detail": "Relaxed pace, focus on form (approx 6:15-6:45 min/km)", "distance_km": 5.0}, {"date": "2026-07-04", "phase": "Early Taper", "type": "Rest", "detail": "Complete rest, focus on recovery", "distance_km": 0.0}, {"date": "2026-07-05", "phase": "Early Taper", "type": "Long run", "detail": "Last moderate long run, very easy effort (approx 6:30-7:00 min/km)", "distance_km": 15.0}, {"date": "2026-07-06", "phase": "Early Taper", "type": "Recovery run", "detail": "Very short and slow, flush out legs", "distance_km": 3.0}], "generated": "2026-06-29T22:21:06"}</script>
 <script>
 const D = JSON.parse(document.getElementById('data').textContent);
 document.getElementById('sub').textContent =
   `${D.dates[0]} – ${D.dates[D.dates.length-1]} · generated ${D.generated}`;
+if (D.coaching) {
+  const cb = document.getElementById('coachbody');
+  for (const raw of D.coaching.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const el = document.createElement('div');
+    if (line.startsWith('- ')) { el.className = 'bullet'; el.textContent = '• ' + line.slice(2); }
+    else { el.className = 'line'; el.textContent = line; }
+    cb.appendChild(el);
+  }
+  document.getElementById('coach').style.display = 'block';
+}
+if (D.fitness && D.fitness.length) {
+  const fb = document.getElementById('fitness');
+  for (const [k, v] of D.fitness) {
+    const el = document.createElement('span');
+    el.style.cssText = 'font-size:14px';
+    el.innerHTML = `<b style="color:#555">${k}:</b> ${v}`;
+    fb.appendChild(el);
+  }
+  document.getElementById('fitwrap').style.display = 'block';
+}
+if (D.plan && D.plan.length) {
+  const tb = document.querySelector('#plan tbody');
+  for (const d of D.plan) {
+    const tr = document.createElement('tr');
+    const dist = d.distance_km ? d.distance_km + ' km' : '—';
+    tr.innerHTML = `<td>${d.date||''}</td><td>${d.phase||''}</td><td>${d.type||''}</td><td>${dist}</td><td>${d.detail||''}</td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('planwrap').style.display = 'block';
+}
 const grid = document.getElementById('grid');
 for (const m of D.meta) {
   const vals = D.metrics[m.key];

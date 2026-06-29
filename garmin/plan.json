@@ -1,0 +1,199 @@
+{
+  "generated": "2026-06-29",
+  "race": {
+    "name": "San Francisco Marathon",
+    "date": "2026-07-26"
+  },
+  "goal_marathon": "3:42:00",
+  "days": [
+    {
+      "date": "2026-06-30",
+      "phase": "Early Taper",
+      "type": "Easy run",
+      "detail": "Gentle pace, conversational effort (approx 6:15-6:45 min/km)",
+      "distance_km": 6.0
+    },
+    {
+      "date": "2026-07-01",
+      "phase": "Early Taper",
+      "type": "Cross-train",
+      "detail": "Light cycling or swimming, low impact, 30-45 min",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-02",
+      "phase": "Early Taper",
+      "type": "Strides",
+      "detail": "4km easy run with 4x30s strides at ~5k pace, recovery walk/jog",
+      "distance_km": 4.0
+    },
+    {
+      "date": "2026-07-03",
+      "phase": "Early Taper",
+      "type": "Easy run",
+      "detail": "Relaxed pace, focus on form (approx 6:15-6:45 min/km)",
+      "distance_km": 5.0
+    },
+    {
+      "date": "2026-07-04",
+      "phase": "Early Taper",
+      "type": "Rest",
+      "detail": "Complete rest, focus on recovery",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-05",
+      "phase": "Early Taper",
+      "type": "Long run",
+      "detail": "Last moderate long run, very easy effort (approx 6:30-7:00 min/km)",
+      "distance_km": 15.0
+    },
+    {
+      "date": "2026-07-06",
+      "phase": "Early Taper",
+      "type": "Recovery run",
+      "detail": "Very short and slow, flush out legs",
+      "distance_km": 3.0
+    },
+    {
+      "date": "2026-07-07",
+      "phase": "Taper",
+      "type": "Rest",
+      "detail": "Complete rest",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-08",
+      "phase": "Taper",
+      "type": "Easy run",
+      "detail": "Light and easy, maintain consistent pace (approx 6:15-6:45 min/km)",
+      "distance_km": 5.0
+    },
+    {
+      "date": "2026-07-09",
+      "phase": "Taper",
+      "type": "Tempo/Strides",
+      "detail": "15 min easy, 15 min at steady effort (approx 4:45-5:00 min/km), 10 min easy",
+      "distance_km": 6.0
+    },
+    {
+      "date": "2026-07-10",
+      "phase": "Taper",
+      "type": "Rest",
+      "detail": "Complete rest",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-11",
+      "phase": "Taper",
+      "type": "Easy run",
+      "detail": "Short and refreshing (approx 6:15-6:45 min/km)",
+      "distance_km": 4.0
+    },
+    {
+      "date": "2026-07-12",
+      "phase": "Taper",
+      "type": "Mid-long run",
+      "detail": "Last moderate distance run at easy effort (approx 6:30-7:00 min/km)",
+      "distance_km": 10.0
+    },
+    {
+      "date": "2026-07-13",
+      "phase": "Taper",
+      "type": "Recovery run",
+      "detail": "Very short and slow",
+      "distance_km": 3.0
+    },
+    {
+      "date": "2026-07-14",
+      "phase": "Taper",
+      "type": "Rest",
+      "detail": "Complete rest",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-15",
+      "phase": "Taper",
+      "type": "Easy run",
+      "detail": "Light and easy (approx 6:15-6:45 min/km)",
+      "distance_km": 4.0
+    },
+    {
+      "date": "2026-07-16",
+      "phase": "Taper",
+      "type": "Strides",
+      "detail": "3km easy run with 2x30s strides to feel fresh, not fatigued",
+      "distance_km": 3.0
+    },
+    {
+      "date": "2026-07-17",
+      "phase": "Taper",
+      "type": "Rest",
+      "detail": "Complete rest",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-18",
+      "phase": "Taper",
+      "type": "Easy run",
+      "detail": "Short and gentle (approx 6:15-6:45 min/km)",
+      "distance_km": 3.0
+    },
+    {
+      "date": "2026-07-19",
+      "phase": "Taper",
+      "type": "Short easy run",
+      "detail": "Easy effort, focus on staying loose (approx 6:15-6:45 min/km)",
+      "distance_km": 6.0
+    },
+    {
+      "date": "2026-07-20",
+      "phase": "Taper",
+      "type": "Rest",
+      "detail": "Complete rest",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-21",
+      "phase": "Race week",
+      "type": "Easy run",
+      "detail": "Very light shakeout, keep it relaxed (approx 6:15-6:45 min/km)",
+      "distance_km": 3.0
+    },
+    {
+      "date": "2026-07-22",
+      "phase": "Race week",
+      "type": "Rest",
+      "detail": "Prioritize rest and hydration",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-23",
+      "phase": "Race week",
+      "type": "Shakeout",
+      "detail": "15-20 min very easy run with 2-3 short, quick strides (approx 20s each)",
+      "distance_km": 2.0
+    },
+    {
+      "date": "2026-07-24",
+      "phase": "Race week",
+      "type": "Rest",
+      "detail": "Complete rest, prepare race day nutrition and gear",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-25",
+      "phase": "Race week",
+      "type": "Rest",
+      "detail": "Complete rest, relax, visualize race, early to bed",
+      "distance_km": 0.0
+    },
+    {
+      "date": "2026-07-26",
+      "phase": "Race day",
+      "type": "Race",
+      "detail": "San Francisco Marathon! Aim for a consistent marathon pace (~5:16 min/km), listen to your body.",
+      "distance_km": 42.195
+    }
+  ]
+}
