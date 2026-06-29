@@ -1,8 +1,11 @@
 name: Garmin sync
 
-# Runs in the cloud every morning and commits the latest Garmin data back into
-# this repo (the garmin/ folder). GitHub Actions runners are ephemeral, so the
-# commit step is what makes the data persist between runs.
+# Runs in the cloud every morning. It (1) pulls the latest Garmin data and commits
+# it back into the garmin/ folder, (2) emails a daily digest via Resend, and
+# (3) publishes a password-protected dashboard to GitHub Pages.
+#
+# GitHub Actions runners are ephemeral, so the commit step is what makes the data
+# persist between runs.
 
 on:
   schedule:
@@ -10,9 +13,11 @@ on:
     - cron: "17 6 * * *"
   workflow_dispatch: {}   # lets you click "Run workflow" manually in the Actions tab
 
-# Allow the job to push the refreshed data back to the repo.
+# Allow the job to push data back to the repo AND to deploy GitHub Pages.
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 # Never run two syncs at once; let the in-progress one finish.
 concurrency:
@@ -38,7 +43,7 @@ jobs:
         env:
           # The base64 token bundle printed by `python sync_garmin.py --login`.
           GARMIN_TOKEN_B64: ${{ secrets.GARMIN_TOKEN_B64 }}
-        run: python sync_garmin.py --days 3 --sink files --out ./garmin
+        run: python sync_garmin.py --days 7 --sink files --out ./garmin
 
       - name: Commit updated data
         run: |
@@ -51,3 +56,49 @@ jobs:
             git commit -m "chore: garmin sync $(date -u +%Y-%m-%d)"
             git push
           fi
+
+      - name: Send digest + build dashboard
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GARMIN_MAIL_TO: ${{ secrets.GARMIN_MAIL_TO }}
+          GARMIN_MAIL_FROM: ${{ vars.GARMIN_MAIL_FROM }}
+          # Stable public URL of the Pages site (content is encrypted, see below).
+          DASHBOARD_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+        run: python report.py --out ./garmin --days 14
+
+      - name: Commit dashboard
+        run: |
+          git add garmin/dashboard.html
+          if git diff --cached --quiet; then
+            echo "No dashboard change to commit."
+          else
+            git commit -m "chore: garmin dashboard $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Encrypt dashboard (client-side password gate)
+        env:
+          # StatiCrypt reads the password from this env var; never printed/committed.
+          STATICRYPT_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+        run: |
+          mkdir -p public
+          # --short skips StatiCrypt's interactive short-password prompt (which would
+          # hang CI). Use a STRONG DASHBOARD_PASSWORD — the encrypted file is public.
+          npx --yes staticrypt@3 garmin/dashboard.html -d public --short
+          mv public/dashboard.html public/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: sync
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

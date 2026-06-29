@@ -7,5 +7,6 @@ __pycache__/
 .env
 *.token
 .garminconnect/
+.staticrypt.json   # salt/hash dropped by StatiCrypt during the Pages build
 
 # NOTE: the garmin/ data folder IS committed on purpose (Path A relies on it).
