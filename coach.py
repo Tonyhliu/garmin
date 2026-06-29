@@ -2,24 +2,23 @@
 """AI marathon + wellness coach — turns the Garmin trend series into a short daily note.
 
 Reads only the in-memory ``series`` dict that report.py already builds (no Garmin calls,
-no raw data.json), summarizes it, and asks Claude for concise coaching toward a goal race.
+no raw data.json), summarizes it, and asks the LLM for concise coaching toward a goal race.
 
-Env:
-    ANTHROPIC_API_KEY   Claude API key. If unset, coaching is skipped (digest still sends).
+Env (see gemini.py for the LLM key):
+    GEMINI_API_KEY      Gemini key. If unset, coaching is skipped (digest still sends).
     GARMIN_RACE_NAME    Goal race name (default: "San Francisco Marathon").
     GARMIN_RACE_DATE    Goal race date YYYY-MM-DD (default: "2026-07-26").
+    GARMIN_GOAL_TIME    Optional target finish time (e.g. "3:15:00").
 
-Fail-soft by design: generate_coaching() returns None (and logs to stderr) if the API
-key or SDK is missing, or the call fails — so the daily digest never breaks over coaching.
+Fail-soft by design: generate_coaching() returns None if the LLM is unavailable or the
+call fails — so the daily digest never breaks over coaching.
 """
 
 from __future__ import annotations
 
 import os
-import sys
 from datetime import date
 
-MODEL = "claude-opus-4-8"
 DEFAULT_RACE_NAME = "San Francisco Marathon"
 DEFAULT_RACE_DATE = "2026-07-26"
 
@@ -91,7 +90,7 @@ def _fitness_lines(fitness: dict) -> list[str]:
 
 def summarize_for_prompt(series: dict, race: dict, fitness: dict | None = None,
                          planned: dict | None = None, today: date | None = None) -> str:
-    """Compact numeric summary of trends + fitness + race + tomorrow's plan — all Claude sees."""
+    """Compact numeric summary of trends + fitness + race + tomorrow's plan — all the LLM sees."""
     # Imported lazily to avoid a circular import (report.py imports this module).
     from report import METRICS, fnum, _last_two, _fmt_workout
 
@@ -154,35 +153,9 @@ def summarize_for_prompt(series: dict, race: dict, fitness: dict | None = None,
 
 def generate_coaching(series: dict, race: dict | None = None,
                       fitness: dict | None = None, planned: dict | None = None):
-    """Return a short coaching note from Claude, or None (logged) if unavailable."""
+    """Return a short coaching note from the LLM, or None (logged) if unavailable."""
     race = race or race_config()
-
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("Coaching skipped: ANTHROPIC_API_KEY not set.", file=sys.stderr)
-        return None
-
-    try:
-        import anthropic  # lazy: report.py must run without this dependency installed
-    except ImportError:
-        print(
-            "Coaching skipped: anthropic SDK not installed (pip install anthropic).",
-            file=sys.stderr,
-        )
-        return None
-
     summary = summarize_for_prompt(series, race, fitness=fitness, planned=planned)
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=4096,
-            thinking={"type": "adaptive"},
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": summary}],
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text").strip()
-        return text or None
-    except Exception as exc:  # noqa: BLE001 - never break the digest over coaching
-        print(f"Coaching skipped: Claude API error: {exc}", file=sys.stderr)
-        return None
+
+    import gemini  # lazy: report.py must run even without an LLM configured
+    return gemini.complete(SYSTEM_PROMPT, summary, max_tokens=2048)

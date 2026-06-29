@@ -592,7 +592,7 @@ def main() -> int:
     parser.add_argument("--dashboard-url", default=os.getenv("DASHBOARD_URL"),
                         help="Public dashboard URL to link from the email (optional).")
     parser.add_argument("--no-coach", action="store_true",
-                        help="Skip the AI coaching note + plan (no Claude API call).")
+                        help="Skip the AI coaching note + plan (no LLM API call).")
     parser.add_argument("--replan", action="store_true",
                         help="Force-regenerate the training plan (plan.json).")
     args = parser.parse_args()

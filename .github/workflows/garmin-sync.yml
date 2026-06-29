@@ -62,10 +62,12 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GARMIN_MAIL_TO: ${{ secrets.GARMIN_MAIL_TO }}
           GARMIN_MAIL_FROM: ${{ vars.GARMIN_MAIL_FROM }}
-          # AI coach (optional — if unset, the digest still sends without coaching).
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # AI coach via Gemini free tier (optional — if unset, digest still sends).
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GARMIN_RACE_NAME: ${{ vars.GARMIN_RACE_NAME }}
           GARMIN_RACE_DATE: ${{ vars.GARMIN_RACE_DATE }}
+          GARMIN_GOAL_TIME: ${{ vars.GARMIN_GOAL_TIME }}
           # Stable public URL of the Pages site (content is encrypted, see below).
           DASHBOARD_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
         run: python report.py --out ./garmin --days 14

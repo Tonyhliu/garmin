@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Adaptive taper/training plan — a day-by-day schedule to the goal race, cached on disk.
 
-`ensure_plan()` returns a plan covering today → race date, regenerating it (via one Claude
+`ensure_plan()` returns a plan covering today → race date, regenerating it (via one LLM
 call with structured output) only when needed: missing, race changed, exhausted, a week
 old, or forced with --replan. The daily coach reads `tomorrow_workout()` from it and adapts
 the prescribed session to that day's recovery.
@@ -18,36 +18,16 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-MODEL = "claude-opus-4-8"
 REPLAN_AFTER_DAYS = 7  # weekly re-plan so it adapts to how training actually went
-
-PLAN_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "goal_marathon": {"type": "string"},
-        "days": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "date": {"type": "string"},
-                    "phase": {"type": "string"},
-                    "type": {"type": "string"},
-                    "detail": {"type": "string"},
-                    "distance_km": {"type": "number"},
-                },
-                "required": ["date", "phase", "type", "detail", "distance_km"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    "required": ["goal_marathon", "days"],
-    "additionalProperties": False,
-}
 
 SYSTEM_PROMPT = """\
 You are an expert marathon coach building a concrete day-by-day training plan for one
-athlete, ending on race day. Output ONLY the structured plan.
+athlete, ending on race day.
+
+Return ONLY a JSON object of this exact shape (no markdown fences, no prose):
+{"goal_marathon": "H:MM:SS",
+ "days": [{"date": "YYYY-MM-DD", "phase": "...", "type": "...", "detail": "...",
+           "distance_km": 0}]}
 
 Rules:
 - One entry per calendar day from the given start date through race day (inclusive).
@@ -102,39 +82,33 @@ def _race_summary(race, fitness, series, today):
 
 
 def generate_plan(race, fitness, series, today=None):
-    """One Claude call → validated day-by-day plan dict, or None (logged) on failure."""
+    """One LLM call → day-by-day plan dict, or None (logged) on failure."""
     today = today or date.today()
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("Plan skipped: ANTHROPIC_API_KEY not set.", file=sys.stderr)
+    import gemini  # lazy: report.py must run even without an LLM configured
+    text = gemini.complete(
+        SYSTEM_PROMPT,
+        _race_summary(race, fitness, series, today),
+        max_tokens=8192,
+        as_json=True,
+    )
+    if not text:
         return None
     try:
-        import anthropic
-    except ImportError:
-        print("Plan skipped: anthropic SDK not installed.", file=sys.stderr)
-        return None
-
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=8192,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _race_summary(race, fitness, series, today)}],
-            output_config={"format": {"type": "json_schema", "schema": PLAN_SCHEMA}},
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(text)
-        return {
-            "generated": today.isoformat(),
-            "race": {"name": race["name"], "date": race["date"]},
-            "goal_marathon": data.get("goal_marathon", ""),
-            "days": data.get("days", []),
-        }
-    except Exception as exc:  # noqa: BLE001 - never break the digest over planning
-        print(f"Plan skipped: {exc}", file=sys.stderr)
+    except (json.JSONDecodeError, TypeError) as exc:
+        print(f"Plan skipped: LLM did not return valid JSON: {exc}", file=sys.stderr)
         return None
+    days = data.get("days") or []
+    if not days:
+        print("Plan skipped: LLM returned no days.", file=sys.stderr)
+        return None
+    return {
+        "generated": today.isoformat(),
+        "race": {"name": race["name"], "date": race["date"]},
+        "goal_marathon": data.get("goal_marathon", ""),
+        "days": days,
+    }
 
 
 def _needs_regen(plan, race, today) -> bool:

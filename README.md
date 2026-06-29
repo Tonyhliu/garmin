@@ -13,7 +13,7 @@ the **Markdown files** sink. Each morning the workflow:
 2. Emails you a **daily digest** (yesterday's snapshot + multi-day trends +
    workouts) via [Resend](https://resend.com).
 3. Publishes a **password-protected dashboard** (charts + history) to GitHub Pages.
-4. Adds a short **AI coaching note** from Claude — recovery read, **tomorrow's
+4. Adds a short **AI coaching note** from Gemini (free tier) — recovery read, **tomorrow's
    workout** from an adaptive marathon plan, fitness (VO2max / race predictor), and
    wellness — at the top of the email and dashboard.
 
@@ -31,10 +31,11 @@ do these on GitHub (no terminal needed):
       `RESEND_API_KEY`, `GARMIN_MAIL_TO`, `DASHBOARD_PASSWORD` (make it **long**),
       and a *variable* `GARMIN_MAIL_FROM` = `onboarding@resend.dev`.
       (`GARMIN_TOKEN_B64` is already set.)
-- [ ] **(AI coach)** Add secret `ANTHROPIC_API_KEY` from
-      [console.anthropic.com](https://console.anthropic.com). Optional: variables
-      `GARMIN_RACE_NAME` / `GARMIN_RACE_DATE` (defaults: San Francisco Marathon,
-      2026-07-26). Skip this and everything else still works — the coach just no-ops.
+- [ ] **(AI coach — free)** Add secret `GEMINI_API_KEY` from
+      [Google AI Studio](https://aistudio.google.com/apikey) (free tier). Optional
+      variables: `GARMIN_RACE_NAME` / `GARMIN_RACE_DATE` (defaults: San Francisco
+      Marathon, 2026-07-26), `GARMIN_GOAL_TIME` (e.g. `3:15:00`), `GEMINI_MODEL`. Skip
+      this and everything else still works — the coach just no-ops.
 - [ ] **Enable Pages**: **Settings → Pages → Source = GitHub Actions**.
 - [ ] **Run it**: **Actions → Garmin sync → Run workflow**. Confirm a green run, the
       email arrives, and `https://tonyhliu.github.io/garmin/` asks for your password.
@@ -49,10 +50,11 @@ After that it runs every morning at 06:17 UTC on its own.
 - `sync_garmin.py` — the pull script (read-only; never writes to Garmin).
 - `report.py` — builds the email digest + `dashboard.html` from `garmin/data.json`
   (makes no Garmin calls).
-- `coach.py` — asks Claude for a short daily marathon/wellness note from the trend
-  summary + fitness + tomorrow's planned workout (no Garmin calls; fail-soft).
-- `planner.py` — generates/caches the day-by-day taper plan (`plan.json`) via Claude;
-  regenerates weekly or on `--replan` (fail-soft).
+- `coach.py` — builds the daily marathon/wellness note from the trend summary + fitness
+  + tomorrow's planned workout (no Garmin calls; fail-soft).
+- `planner.py` — generates/caches the day-by-day taper plan (`plan.json`); regenerates
+  weekly or on `--replan` (fail-soft).
+- `gemini.py` — tiny REST client for the Gemini free-tier API (used by coach + planner).
 - `requirements.txt` — Python dependencies.
 - `.github/workflows/garmin-sync.yml` — daily cloud automation.
 
@@ -92,7 +94,8 @@ In the repo: **Settings → Secrets and variables → Actions**. Add these under
 | `GARMIN_MAIL_TO`     | secret   | the email address to send the digest to                     |
 | `DASHBOARD_PASSWORD` | secret   | a **strong** passphrase that unlocks the dashboard (see below) |
 | `GARMIN_MAIL_FROM`   | variable | sender; use `onboarding@resend.dev` until you verify a domain |
-| `ANTHROPIC_API_KEY`  | secret   | Claude API key for the AI coach (optional — omit and coaching is skipped) |
+| `GEMINI_API_KEY`     | secret   | Gemini free-tier key for the AI coach (optional — omit and coaching is skipped) |
+| `GEMINI_MODEL`       | variable | optional; Gemini model id (default: `gemini-2.5-flash`)      |
 | `GARMIN_RACE_NAME`   | variable | optional; goal race name (default: San Francisco Marathon)   |
 | `GARMIN_RACE_DATE`   | variable | optional; goal race date `YYYY-MM-DD` (default: 2026-07-26)   |
 | `GARMIN_GOAL_TIME`   | variable | optional; target finish like `3:15:00` (else uses Garmin's predictor) |
@@ -128,8 +131,9 @@ workflow to change the time).
 ## The AI coach
 
 `coach.py` sends your recent trend summary — plus current fitness (VO2max, race
-predictor, training status) and **tomorrow's planned workout** — to Claude
-(`claude-opus-4-8`) and gets back a short daily note: a push/hold/easy/rest call,
+predictor, training status) and **tomorrow's planned workout** — to Gemini
+(free tier, `gemini-2.5-flash` by default) and gets back a short daily note: a
+push/hold/easy/rest call,
 a specific **"Tomorrow: …"** session adapted to your recovery, race-prep bullets, and
 a wellness tip. It's race-aware: it counts down to `GARMIN_RACE_DATE` and shifts advice
 as the taper approaches.
@@ -141,10 +145,13 @@ plan runs out, or you pass `--replan`. The coach reads tomorrow's entry and adap
 the email/dashboard show the upcoming days. Set `GARMIN_GOAL_TIME` (e.g. `3:15:00`) to
 plan around a target pace instead of Garmin's predicted time.
 
-- **Cost:** one Claude call per day on a small prompt — negligible.
-- **Privacy:** only the *aggregated* metric summary (numbers + a workout list) is sent
-  to the Claude API — never raw GPS or the full `data.json`.
-- **Fail-soft:** no `ANTHROPIC_API_KEY` (or any API error) → the digest still sends,
+- **Cost:** uses Gemini's **free tier** — one small call/day plus a weekly plan, well
+  within free limits. Swap `GEMINI_MODEL` if your account exposes a different free model.
+- **Privacy:** only the *aggregated* metric summary (numbers + a workout list) is sent —
+  never raw GPS or the full `data.json`. ⚠️ Note Google may use **free-tier** API data to
+  improve its products; if that matters for health data, use a paid Gemini tier (or
+  another provider) where that's disabled.
+- **Fail-soft:** no `GEMINI_API_KEY` (or any API error) → the digest still sends,
   just without the coaching note.
 - **Not medical advice** — the note says so; treat it as informational.
 
@@ -152,12 +159,12 @@ Test it locally:
 
 ```bash
 # Preview the coaching note + metrics without sending an email
-ANTHROPIC_API_KEY=sk-ant-... .venv/bin/python report.py --out ./garmin --dry-run
+GEMINI_API_KEY=... .venv/bin/python report.py --out ./garmin --dry-run
 
 # Force-regenerate the training plan (plan.json)
-ANTHROPIC_API_KEY=sk-ant-... .venv/bin/python report.py --out ./garmin --replan --dry-run
+GEMINI_API_KEY=... .venv/bin/python report.py --out ./garmin --replan --dry-run
 
-# Build everything but skip the Claude call entirely (no coach, no plan)
+# Build everything but skip the LLM call entirely (no coach, no plan)
 .venv/bin/python report.py --out ./garmin --no-coach --dry-run
 ```
 
